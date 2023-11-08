@@ -1,0 +1,180 @@
+
+---
+title: "Dimension Reduction - PCA and Exploratory Factor Analysis"
+author: "Hamid Aboutaher"
+date: "04/23/2021"
+
+fontsize: 12pt
+---
+
+Create a Word document from this R Markdown file for the following exercises.  Submit the R markdown file and resulting Word document.   
+
+## Exercise 1
+
+A researcher was interested in learning what motivates international fans when they watch U.S. sports.  A questionnaire was created in which respondents reported their score for 42 "importance factors" about fan motivation by circling the number that indicates why they watch, read, and/or discuss U.S. sports (5=Very High, 4=High, 3=Average, 2=Low, 1=Very Low).   
+
+The fans were categorized on issues such as gender, interest in U.S. sports, and the media source from which their information comes.  Four hundred surveys were completed for the study.
+
+The data is in the file ifanmot.rda and the survey is in the file IFM_Survey.docx.
+
+### Part 1a
+
+Conduct Bartlett's test for sphericity on the responses for the 42 survey questions found in columns 1 through 42 of the file ifanmot.rda.  State the null and alternative hypothesis and report on the results.  Note, in the R function, n represents the sample size of the data that was used to create the correlation/covariance matrix.
+
+Is factor analysis warranted based on this measure?
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1a -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+require(DS705data)
+require(psych)
+data("ifanmot")
+mat <- cor(ifanmot[,1:42])
+cortest.bartlett(mat,n=400)
+
+```
+
+Null hypothesis:  correlation matrix = identity matrix.
+Alternative hypothesis:  correlation matrix is not the identity matrix.
+
+at 5% level of significance we reject the null hypothesis, which is the correlation matrix is not the identity matrix.
+
+
+### Part 1b
+
+Compute the Kaiser-Meyer-Olkin (KMO) Measure of Sampling Adequacy (MSA) for the responses for the 42 survey questions found in columns 1 through 42 of the file ifanmot.rda.  
+
+Is the overall MSA value acceptable for factor analysis?
+
+Should any questionnaire items be dropped from the factor analysis because of low MSA values?  If so which ones?
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1b -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r }
+KMO(mat)
+
+```
+No terms should be dropped because we don't have items with KMO value less than 0.5
+
+
+### Part 1c  
+
+Use R to create a scree plot for the questionnaire items that you deemed to be appropriate for the factor analysis from the previous question.  Use the scree plot to answer the questions below.  (You may need to print the eigenvalues using code like *output$sdev^2* to see which ones are over 1) 
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1c -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r }
+Res <- princomp(ifanmot[,1:42], cor=TRUE)
+plot(Res,type="lines")  
+abline(h=1,lty=2)
+Res$sdev^2
+
+```
+
+##### Where would you say the "knee" is in the scree plot?  
+
+3
+##### How many factors does the knee in the scree plot suggest extracting?
+
+3
+##### How many components have eigenvalues (aka variances, latent roots) greater than 1?
+
+9
+##### How many factors does this suggest extracting?
+9
+
+##### Is the Kaiser Rule (eigenvalues >1) recommended for this data set?  Explain.
+
+Since we have 9 PC or (RC) with eigenvalues greater than 1, these 9 PC should be include. I think the Kaiser Rule would be recommended for this dataset. 
+
+### Part 1d
+
+Use a principal components extraction with the varimax rotation to extract 3 factors.  Print the output with factor loadings under 0.5 suppressed and sort the loadings.  (Note - in the video the columns were labeled PC1, PC2, etc., but the newer version of principal() uses RC1, RC2, etc.)
+
+Answer the questions below.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1d -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r }
+fan <- principal(ifanmot[,1:42],nfactors=3,rotate="varimax")
+print(fan,cut=.5,sort=TRUE)
+
+```
+
+##### What is the cumulative variance explained (as a percent)?  
+
+48%
+##### Is this considered an acceptable percent of total variation?
+
+No
+### Part 1e
+
+Use a principal components extraction with the varimax rotation to extract 9 factors.  Print the output with factor loadings under 0.5 suppressed and sort the loadings.
+
+Answer the questions below.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r }
+fan <- principal(ifanmot[,1:42],nfactors=9,rotate="varimax")
+print(fan,cut=.5,sort=TRUE)
+
+```
+
+##### What is the cumulative variance explained (as a percent)?  
+
+67%
+##### Is this considered an acceptable percent of total variation?
+Yes
+
+### Part 1f
+
+Read the questions in the survey (IFM Survey.docx) for the groups of items that load onto each factor and put a comprehensive label on each of the 9 factors from the most recent factor analysis (extracting 9 factors with principal components and a varimax rotation).
+
+For consistency assign the following 9 labels to the most appropriate factors:
+
+**Artistic, Boredom, Entertainment, Fun, Gambling, Identification, Loyalty, Patriotism, Social**
+
+Factors 1 through 9 move from left to right in the sorted output (even though the columns labels PC1-PC9 in the output are not in order). 
+
+I have labeled the second factor (labeled PC9 in the R output) for you as "Social". Look at the survey items that correspond to the second factor (Q11, Q14, Q18, Q19, Q20, and Q35) and see if that label makes sense.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1f -|-|-|-|-|-|-|-|-|-|-|-
+
+Factor 1: Fun Factor
+
+Factor 2: Social
+
+Factor 3: Identification
+
+Factor 4: Patriotism
+
+Factor 5: Artistic
+
+Factor 6:  Loyalty
+
+Factor 7: Gambling
+
+Factor 8: Boredom
+
+Factor 9: Entertainment
+
+### Part 1g
+    
+Combine the factor scores produced by the 9-factor solution with the original data frame.  Also, rename the factor scores using the labels you assigned previously.  Some R code to begin this has been provided.  Add to it to complete this request.
+    
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1g -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+require(psych)
+require(DS705data)
+data(ifanmot)
+fan <- principal(ifanmot[,1:42],nfactors=9,rotate="varimax")
+fulldata <- cbind(ifanmot,fan$scores)
+require(plyr)
+fulldata <- rename(fulldata,c("RC1"="Fun","RC9"="Social","RC5"="Identification","RC3"="Patriotism","RC4"="Artistic","RC7"="Loyalty","RC2"="Gambling","RC6"="Boredom","RC8"="Entertainment"))  # 
+
+head(fulldata[,43:54])
+```
+
+

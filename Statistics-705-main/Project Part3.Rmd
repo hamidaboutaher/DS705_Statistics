@@ -1,0 +1,337 @@
+---
+title: "Project Part 3"
+author: "Hamid Aboutaher"
+date: "5/6/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width = 4, fig.height = 4)
+```
+
+# 1 Executive Summary
+
+It is clear to anyone who witnessed the financial crisis of 2008 that approving anyone and everyone for a loan was behind it. The bank industry vows to make wise lending decisions because it is a major source of their long-term revenue. By correctly predicting which loans are “good” versus “bad”, the bank can avoid accumulating costly liabilities and maximize profit. The purpose of this report is to provide a summary of a model created to increase bank profitability and discuss the suitability of this model for bank operations.
+The original dataset used to create the predictive model consists of 50,000 loans and 30 customer and loan-related fields. After data cleaning and preparation, the usable dataset consists of approximately 32,500 loans. The model was trained on roughly 26,000 of these loans and tested on the remaining ~6500.
+The results of the predictive model are encouraging: the model predicts loan status with 80% accuracy compared to actual (observed) classifications. By employing the model at this level of accuracy we should get:
+1 - an increase of accuracy by 9% 
+2 - an increase in good loans by 17% 
+3 - a decrease of bad loans by 21% 
+4 - maximum profit decreases by about -$569k to $3.4M. 
+5 - The threshold value to remain at 0.78.
+
+
+
+## 2 - Introduction
+This project is about building a model that predicts which applicants will likely to default on bank loan and an attempt to mitigate any loss. The model we are going to build is based on a logistic regression giving a data set that includes 30 variables for 50,000 loans.The data set contains categorical and quantitative  variables with missing values. The first step in preparing the data is to create a new column named response that will have the values "Good" and "Bad". It is based on the variable status
+Prior to building a logistic regression, a close look at the association among variables would help classify applicants based on their loan status (fully paid vs charged off).
+
+# 3 Data Preparation and Cleaning
+
+Preparing and Cleaning the data:
+ A- decide which columns to eliminate and which ones to keep.
+1 - response
+2- amount
+3 - income
+4 - home
+5 - openAcc
+6 - totalBalance
+7 - totalLim
+8 - delinq2yrs
+
+B - dealing with missing values.
+C - determine the response variable.
+D - converting some categorical variables to numerical ones..
+
+
+
+```{r, message=FALSE, results='hide'}
+lapply(c("readr","dplyr","car","mice","ggformula","ggpubr"), require, character.only = TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE}
+  #load the data
+loans = read_csv("loans50k.csv")
+```
+Now we can prepare our response variable based on the status column of the existing dataset. We will discard any "in progress" loans, and only keep those that are "complete" - these three status reflect completed loans, leaving 34,655 observations remaining: 
+```{r, message=FALSE}
+loans = loans[loans$status %in% c("Fully Paid", "Charged Off", "Default"),]
+```
+Because our response variable must be binary in order to use logistic regression, we will condense the results into a 2-factor variable called "outcome".
+```{r, message=FALSE}
+loans = loans %>% mutate(outcome = as.factor(if_else(status == "Fully Paid","Good","Bad")))
+```
+
+##  Feature Selection
+
+In an effort to keep parsimony, we will a look at each of these variables in the dataset and evaluate if we expect them to add overall value to the model. To get us started, we can drop the "status" variable since we used it already to create our new response variable.
+```{r, message=FALSE}
+loans = subset(loans, select = -status)
+```
+
+
+The following variables to be removed:
+
+loanID:      this variable doesn't add any tangible value to the equation. 
+employment:  due to its inconsistency needs to be removed.
+verified:    Whether it's verified or not it just doesn't matter.
+state:       Whether you live Washington state or NY, geographic location doesn't matter.
+debtIncRat:  This ratio doesn't provide meaniful information it can be obtained anytime form                 data.
+revolRatio:  same as aboce.
+totalAcc:    we deal only with active account.
+bcRatio":    can be obtained from data when needed, now it doesn't provide more info.
+
+
+```{r, echo=FALSE, message=FALSE}
+loans = subset(loans, select = -c(loanID,employment,verified,state,debtIncRat,revolRatio,totalAcc,bcRatio))
+```
+
+##  Feature Engineering
+
+The next step is to convert the remaining variables to character string. 
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+str(loans)
+```
+``
+```{r, message=FALSE}
+loans = mutate_at(loans, vars(term,grade,length,home,reason), as.factor)
+```
+
+Now that we have the variable's types coded correctly, we can review the number and counts (i.e. general distribution) of categories within each of the converted variables using a barplot as a visual. 
+
+```{r, echo=FALSE, fig.width = 7.5, fig.height = 4}
+par(mfrow=c(2,3),mar=c(4,3,3,1))
+barplot(table(loans$term), main = "Loan Term")
+barplot(table(loans$grade), main = "Loan Grade")
+barplot(table(loans$length), las=2, main = "Employment Length")
+barplot(table(loans$home), main = "Living Type")
+barplot(table(loans$reason), las=2, cex.names = 0.9, main = "Loan Reason")
+```
+
+As far as grade variable which ranges from A to G, where F and G have less counts than others. So we merge F and G into new category we call it E or less. 
+One more thing worth to mention here is that the majority of accounts are in 36 terms. 
+
+
+```{r, message=FALSE}
+loans$grade = recode(loans$grade,"c('E','F','G')='E or less'")
+```
+
+The employment length variable has many different categories, and the 10+ year is skewing the distribution, so let's combine into three categories as follows (we also have NA, and will deal with that in the next section):
+
+* "0-4 years"
+* "5-9 years"
+* "10+ years"
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+loans$length = recode(loans$length,"c('< 1 year','1 year','2 years','3 years','4 years')='0-4 years';c('5 years','6 years','7 years','8 years','9 years')='5-9 years'")
+```
+
+When it comes to home variable (rent, mortgate) we are dealing with only 3 categories with frequency aboce 5%. So no adjustment needed. What is needed here is to concatenate some categories using recode function, due to their low number of observation. Not to mention the similarity in nature such as house and home improvement. Let's take look at this variables.
+Home Expense = home_improvement, house, moving, renewable_energy
+Other = car, major_purchase, medical, other, small_business, vacation, wedding
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+loans$reason = recode(loans$reason,"'credit_card'='Credit Card';'debt_consolidation'='Debt Consolidation'; c('home_improvement','house','moving','renewable_energy')='Home Expense'; c('car','major_purchase','medical','other','small_business','vacation','wedding')='Other'")
+```
+
+##  Missing Data 
+
+There are two variables that contain missing values - length (of employment) & bcOpen. Because "length" is a categorical variable, we won't be able to impute its value, so these 1,823 observations will be dropped.
+
+```{r, message=FALSE}
+loans = loans[which(loans$length != "n/a"),]
+```
+
+We start by imputing BcOpen since it is quantitative variable to determine the best fit values for the missing data. Using imput_bcOpen function which takes in the original dataframe and performs the imputation with the help of the mice package then replace the na values with new values.
+
+```{r, message=FALSE}
+impute_bcOpen <- function(df, seed){
+  index_NA = which(is.na(df$bcOpen))
+  imputation = mice(loans, seed = seed)
+
+  for(i in 1:length(index_NA)){
+    sum = 0
+    sum = sum + imputation$imp$bcOpen$`1`[i]
+    sum = sum + imputation$imp$bcOpen$`2`[i]
+    sum = sum + imputation$imp$bcOpen$`3`[i]
+    sum = sum + imputation$imp$bcOpen$`4`[i]
+    sum = sum + imputation$imp$bcOpen$`5`[i]
+    df$bcOpen[index_NA[i]] = sum/5
+  }
+  return(df)
+}
+```
+
+```{r, echo=FALSE, message=FALSE, results='hide'}
+loans = impute_bcOpen(loans, seed = 123456)
+```
+
+# 4 Data Transformation
+
+In preparation for model fitting, we need to take a look at the distribution of our quantitative variables to understand their shape. Should a distribution appear skewed in either direction, we can attempt a transformation to make it more "normal" in shape.
+
+```{r, echo=FALSE, fig.width = 6.3, fig.height = 3}
+par(mfrow=c(1,2),mar=c(4,4,4,1))
+hist(loans$income, main = "Distribution of Income", xlab = "Dollars ($)")
+hist(log(loans$income), main = "Distribution of log(Income)", xlab = "Dollars (Log $)")
+par(mfrow=c(1,1))
+loans$income = log(loans$income)
+```
+
+A prime example of skewed data is the "income" variable. In the first histogram we see a severely right-skewed distribution, so we attempt a log() transformation. The results of the log(income) show in the graph to the right - these are now much more normally distributed, so we will keep this transformation on the "income" variable.
+
+```{r,message=FALSE, echo=FALSE, include=FALSE, fig.width = 12, fig.height = 7}
+par(mfrow=c(5,4),mar=c(4,4,4,1))
+hist(loans$amount, main = "amount", xlab = "")
+hist(log(loans$amount), main = "log(amount)", xlab = "")
+hist(loans$totalBal, main = "totalBal", xlab = "")
+hist(log(loans$totalBal), main = "log(totalBal)", xlab = "")
+hist(loans$totalRevLim, main = "totalRevLim", xlab = "")
+hist(log(loans$totalRevLim), main = "log(totalRevLim)", xlab = "")
+hist(loans$bcOpen, main = "bcOpen", xlab = "")
+hist(log(loans$bcOpen), main = "log(bcOpen)", xlab = "")
+hist(loans$totalLim, main = "totalLim", xlab = "")
+hist(log(loans$totalLim), main = "log(totalLim)", xlab = "")
+hist(loans$totalRevBal, main = "totalRevBal", xlab = "")
+hist(log(loans$totalRevBal), main = "log(totalRevBal)", xlab = "")
+hist(loans$totalBcLim, main = "totalBcLim", xlab = "")
+hist(log(loans$totalBcLim), main = "log(totalBcLim)", xlab = "")
+hist(loans$totalIlLim, main = "totalIlLim", xlab = "")
+hist(log(loans$totalIlLim), main = "log(totalIlLim)", xlab = "")
+hist(loans$avgBal, main = "avgBal", xlab = "")
+hist(log(loans$avgBal), main = "log(avgBal)", xlab = "")
+par(mfrow=c(1,1))
+```
+
+
+A look at the remaining dollars based variables suggest a log() transformation applied to each one with the exception of (loan) amount.
+
+```{r,message=FALSE, echo=FALSE, include=FALSE}
+cols_to_transform = c("totalBal","totalRevLim","bcOpen","totalLim","totalRevBal","totalBcLim","totalIlLim","avgBal")
+loans[cols_to_transform] = loans[cols_to_transform]+1
+loans[cols_to_transform] = lapply(loans[cols_to_transform], log)
+rm(cols_to_transform)
+```
+
+## Data Exploration
+
+Our final step before model fitting is to explore some of the data within the variables to gain some intuition of distribution as it relates to the our outcome variable of "Good vs. Bad".
+
+```{r,message=FALSE, echo=FALSE, fig.width = 8, fig.height = 3}
+bx_amount=gf_boxplot(amount~outcome, data=loans,  xlab="Loan Outcome", ylab="Loan Amount ($)", title='Distribution of Loan "Amount"')
+bx_rate=gf_boxplot(rate~outcome, data=loans,  xlab="Loan Outcome", ylab="Loan Rate (%)", title='Distribution of Loan "Rate"')
+ggarrange(bx_amount,bx_rate, ncol = 2, nrow = 1)
+rm(bx_amount,bx_rate)
+```
+
+We set the loan amounts in $ as seen in fig (boxplot). Loans that have a bad outcome seem evenly distributed in their amounts, whereas good loans appear slightly skewed to the right. To check the significance between these distribution we implement the Wilcoxon Sum Rank Test.
+At the 95% level of confidence, there is enough evidence to that the bad loan's median amount is at least \$1,000 greater than the good loan's median amount (p=2.2e-16).
+
+```{r,message=FALSE, echo=FALSE,results='hide'}
+
+wilcox.test(loans$amount~loans$outcome, alternative = "greater", conf.int = TRUE)
+```
+The second boxplot display's loan percentage rate distribution. Both data sets appear to be normally distributed with a some outliers, however, similar to the above, the bad loans appear to have a higher median. We perform a Wilcoxon Sum Rank test to check for significance between these distributions, and at the 95% level of confidence, there is enough evidence to that the bad loan's median rate is at least 2.99% greater than the good loan's median rate (p=2.2e-16).
+
+```{r,message=FALSE, echo=FALSE,results='hide'}
+
+wilcox.test(loans$rate~loans$outcome, alternative = "greater", conf.int = TRUE)
+```
+
+```{r,message=FALSE, echo=FALSE, fig.width = 8, fig.height = 3}
+bar_grade=gf_bar(~grade, data = loans,color=~outcome,position = position_dodge(), title = 'Distribution of Loan "Grade"')
+bar_term=gf_bar(~term, data = loans,color=~outcome ,position = position_dodge(), title = 'Distribution of Loan "Term"')
+ggarrange(bar_grade, bar_term, ncol = 2, nrow = 1)
+rm(bar_grade,bar_term)
+```
+In comparison of the two the distribution of bad vs. good outcomes based on letter grade of the loan. We see some disproportion, with lesser graded loans having a higher number of bad outcomes. Chi-squared goodness of fit to test against the theory the distributions among categories is different. The test provides enough evidence to support the distributions of bad loans are different by loan grade based on p-value of p=2.2e-16.
+
+```{r,message=FALSE, echo=FALSE,results='hide'}
+    
+bad_A = nrow(loans[loans$outcome == "Bad" & loans$grade == "A",])
+bad_B = nrow(loans[loans$outcome == "Bad" & loans$grade == "B",])
+bad_C = nrow(loans[loans$outcome == "Bad" & loans$grade == "C",])
+bad_D = nrow(loans[loans$outcome == "Bad" & loans$grade == "D",])
+bad_E = nrow(loans[loans$outcome == "Bad" & loans$grade == "E or less",])
+grades = matrix(c("A",bad_A,0.20,"B",bad_B,0.20,"C",bad_C,0.20,"D",bad_D,0.20,"E or Less",bad_E,0.20), ncol = 3, byrow = TRUE)
+colnames(grades) = c("Grade","Frequency of Bad","equaldistribution")
+grades_test = chisq.test(as.numeric(grades[,2]), p = as.numeric(grades[,3]))
+grades_test$expected
+grades_test
+rm(grades,grades_test,bad_A,bad_B,bad_C,bad_D,bad_E)
+```
+
+Finally, we review the proportions of bad vs. good outcomes for the 36 and 60 month loan terms. Visually, there appears to be a much lower proportion of bad loan outcomes in the 36 month term vs. the 60 month term, so we perform a proportion test. At a 95% level of confidence, there is enough evidence to support the proportion of bad loans in the 36 month term group is at least 18.07% less than the proportion of bad loans in the 60 month term group (p=2.2e-16).
+
+```{r,message=FALSE, echo=FALSE,results='hide'}
+bad_36 = nrow(loans[loans$outcome == "Bad" & loans$term == "36 months",])
+good_36 = nrow(loans[loans$outcome == "Good" & loans$term == "36 months",])
+bad_60 = nrow(loans[loans$outcome == "Bad" & loans$term == "60 months",])
+good_60 = nrow(loans[loans$outcome == "Good" & loans$term == "60 months",])
+term = matrix(c(bad_36,good_36,bad_60,good_60), ncol = 2, byrow = TRUE)
+rownames(term) = c("36 months","60 months")
+colnames(term) = c("Bad","Good")
+prop.test(term, alternative = "less", correct = TRUE)
+rm(bad_36,bad_60,good_36,good_60,term)
+```
+
+
+Section 5 - “The Logistic Model”
+
+To build a logistic regression, we need to create a dataset and we are going to use the cross-validation method. we split data; 80% of the dataset goes into the training set and 20% of the dataset goes into the testing set. Next the full model is run along with the summary function to see which variables are significant and which should be included in the model. Actually before removing some variables we check for collinearity among variables, then remove those who have the highest “VIF” score above 10 using the VIF() function. After the removal of certain variables,we check VIF scores again, repeat the process until there are no more variables above 10.
+Before getting to the regression model let's set the training data (80%).
+
+```{r}
+set.seed(125)
+training_data = sample(seq_len(nrow(loans)),size = floor(0.80*nrow(loans)))
+train = loans[training_data,]
+test = loans[-training_data,]
+train = subset(train, select = -c(totalPaid))
+rm(training_data)
+
+```
+To continue the building of the model, we use stepwise method with a forward direction which begins by running the null model to add to the full mode while taking in consideration the AIC score. It works by evaluating the model’s fit on the training dataset, and add a penalty term for the complexity of the model. The purpose is to find the lowest possible AIC. The variables that decrease the AIC the most are the ones added to the model. We want to find the AIC which indicates the best balance of the model fit. We keep repeating this process until adding one more variable would increase the AIC. At that point, maximizing the fit meaning the best version of the model has been reached.
+
+```{r message=FALSE, echo=TRUE, results='hide'}
+fullmodel = glm(outcome~., data = train, family = "binomial"); vif(fullmodel)
+fullmodel = glm(outcome~., data = subset(train, select = -c(totalBal)), family = "binomial")
+vif(fullmodel)
+fullmodel = glm(outcome~., data = subset(train, select = -c(totalBal, amount)), family = "binomial")
+vif(fullmodel)
+fullmodel = glm(outcome~., data = subset(train, select = -c(totalBal, amount, totalLim)), family = "binomial")
+vif(fullmodel) 
+
+```
+
+This is what the algorithm suggested is the best model: outcome ~ grade + term + accOpen24 + home + income + payment + bcOpen + delinq2yr + avgBal + totalIlLim + rate + totalRevLim + totalRevBal + inq6mth.
+This results suggest to remove inq6mth and totalIlLim because of their insignificance. and AIC score is 24809.
+
+
+```{r message=FALSE, results='hide' }
+nullmodel = glm(outcome~1, data = train, family = "binomial")
+step(nullmodel, scope = list(lower = nullmodel, upper = fullmodel), direction = "forward")
+
+```
+The model that the process has identified as the "best" model is listed: outcome ~ grade + term + accOpen24 + home + income + payment + bcOpen + delinq2yr + avgBal + totalIlLim + rate + totalRevLim + totalRevBal + inq6mth.
+
+```{r message=FALSE, echo=FALSE, results='hide'}
+model = glm(formula = outcome ~ grade + term + accOpen24 + home + income + 
+    payment + bcOpen + delinq2yr + avgBal + totalIlLim + rate + 
+    totalRevLim + totalRevBal + inq6mth, family = "binomial", 
+    data = train)
+summary(model)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

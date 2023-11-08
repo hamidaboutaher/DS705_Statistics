@@ -1,0 +1,415 @@
+---
+title: 'Inference for Paired Data'
+author: "Hamid Aboutaher"
+date: "02/24/2021"
+output: word_document
+fontsize: 12pt
+---
+
+Create a Word docx from this R Markdown file for the following exercise.  Submit the R markdown file and resulting Word docx file.
+
+## Exercise 1  
+
+To reduce ankle injuries, restrictive appliances such as taping and spatting (applying tape over the shoe and sock) have been employed. As part of a study at UWL, subjects also completed a 5-point Likert-type scale survey regarding their perceptions of the movement of each ankle appliance during exercise.
+
+Researchers would like to compare the central values for perceptions of the movement of taped ankles compared to spatted ankles using $\alpha = 0.10$ and to estimate the difference with 90% confidence.
+
+### Part 1a
+
+Load the data set AnkleMovement.rda from the DS705 package.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1a -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+require(DS705data)
+library(dplyr)
+data("AnkleMovement")
+
+```
+
+---
+
+### Part 1b	
+
+Create a new variable of the differences, with the perceptions of the spatted ankle (spat) subtracted from the perceptions of the taped ankle (tape).
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1b -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+df <- data.frame(AnkleMovement)
+dif <- df$tape - df$spat
+dif
+
+```
+
+---
+
+### Part 1c  
+
+Create a boxplot and histogram for the sample of differences. 
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1c -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+hist(dif,xlab = "", main ="Sample of Difference", col = "lightblue")
+boxplot(dif, ylab="", main="Sample of Differences", col = "orange")
+```
+
+---
+
+### Part 1d  
+
+Comment on the suitability of this data for the paired t-test, the Wilcoxon signed rank test, and the sign test.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 1d -|-|-|-|-|-|-|-|-|-|-|-
+
+according to t.test the mean of tape is -0.31 smaller than the mean of spat. The alternative hypothesis suggests than difference in mean is not equal to 0.
+with Wilcoxon test the two test are not shifted from each other that both medians are equal. Since the p-value is 0.14 the distribution of tape test and spat test is not shifted and symmetric due to the fact Wilcoxon test makes that the assumption that the distribution must be symmetric.
+As far signmedian.test there is no evidence against the null hypothesis which suggests that median is 0 and the alternative hypothesis the median of tape data is greater than spat data. 
+As far as signmedian test requires that data must be randomly selected made it less power than both t test and Wilcoxon test.
+
+
+---
+
+### Part 1e 
+
+Because the choice of test is somewhat unclear, as happens often in real life, try all three tests to compare the central values for subject's perceptions of the movement of taped ankles compared to spatted ankles using $\alpha = 0.10$.
+
+Do the t-test first: 
+
+#### Step 1
+
+Define the parameter in words in the context of the problem.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step1 -|-|-|-|-|-|-|-|-|-|-|-
+
+ μd : let be the mean difference (dif=tape - spat) in perception of the movement. 
+ H0: null hypothesis μd = 0
+ Ha: alternative hypothesis μd > 0.
+
+
+#### Step 2
+
+State the null and alternative hypotheses for the test using the symbol you defined previously.
+ 
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step2 -|-|-|-|-|-|-|-|-|-|-|-
+t test : alternative hypothesis Ha true difference in means is greater than 0.
+(dif > 0). H0 dif = 0. which suggest that means are equal (tap = spat)
+
+#### Step 3
+
+Use R to generate the output for the test you selected.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step3 -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+t.test(df$tape,df$spat, alternative = "two.sided", paired = TRUE)
+
+```
+
+#### Step 4
+
+State a statistical conclusion at $\alpha=0.10$ and interpret it in the context of the problem.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step4 -|-|-|-|-|-|-|-|-|-|-|-
+at the level of significance 10%, H0 would be rejected. We can say that the mean of (tape) in perception of the movements is higher than the mean of perception movements in spat. 
+
+#### Step 5
+
+Write an interpretation in the context of the problem for the 90% CI for the population mean difference.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step5 -|-|-|-|-|-|-|-|-|-|-|-
+
+With 90% confidence interval the mean tape in perception of the movements is -0.31-1.02 (i am not sure to use abs value her since we have .31 below 0). However, I would say the mean tape is 0 to 1.02 higher than mean spat. 
+
+#### Step 6
+
+Perform the Wilcoxon Signed Rank Test.  
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step6 -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+wilcox.test(df$tape,df$spat, alternative = "greater", paired = TRUE)
+wilcox.test(df$tape,df$spat, conf.int = .90, paired = TRUE)
+```
+H0: median of difference in perception of movements is 0.
+Ha: the perception of movements median (tape) is greater than spat perception of movements. in another word the data distribution is shifted from one another.
+at 90% confidence interval the median perception of movements tape is 0.5 to 2 greater than of spat. 
+
+
+#### Step 7
+
+Perform the sign test.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step7 -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+### error during knit doc.
+##signmedian.test(dif,mu=0, alternative = "greater")
+##signmedian.test(dif,mu=0, conf.level = .90)
+```
+
+H0: median of dif is 0 mu=0
+Ha: alternative of dif is greater than 0. 
+the p-value indicates that the median of dif between population perception of movements for tape and  perception of movements for spat is 0. at 90% confidence interval we are only 87.5% confidence that perception of movements in tape is -1 to 2 greater than the median of spat.
+
+---
+
+#### Step 8
+
+Construct a bootstrap confidence interval at a 90% level of confidence for the mean difference in population mean perception of movement for taped and spatted ankles.  Use a bootstrap sample size of 5000.  Compare this interval with the results of the 90% *t*-interval.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step8 -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+library(boot)
+bootMeanPaired <- function(x,i){mean(x[i])}
+boot.objec <- boot(dif,bootMeanPaired, R=5000)
+boot.object <- boot(dif,bootMeanPaired, R=5000)
+boot.ci(boot.object, type = 'bca')$bca[4:5]
+
+```
+The results from bootstrap test is almost identical to the ones obtained by t test. here we have that the population mean perception of movement for taped is 0.3 to 0.8 greater than spatted. In t-test the ratio was 0.3 to 1.0
+
+
+---
+
+#### Step 9
+
+Compare the results of the three hypothesis tests and also whether or not the 90% bootstrap interval agrees with the result of each test.  Which procedure should be reported and why?
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 1e.step9 -|-|-|-|-|-|-|-|-|-|-|-
+
+
+
+## Exercise 2
+
+In a nationwide study of insurance claims (in dollars) filed in the previous year, a random sample of 125 claims was selected from all claims for vehicles classified as small, meaning the gross vehicle weight rating (GVWR) is less than 4500 pounds.  
+
+For each claim, the insurance company's estimate for the claim was also provided.
+
+The data frame SmallAuto.rda contains the claims and estimates for each vehicle class. 
+
+### Part 2a  
+
+Load the data SmallAuto from the DS705 package.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2a -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+data("SmallAuto")
+
+```
+
+---
+
+### Part 2b
+
+Construct histograms and boxplots for both the estimated claims and actual for the small class of vehicle. Describe the shapes of these distributions.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2b -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+# hist(actualclaims,main = "Claims for Actual", col = "blue")
+# hist(Estimatedclaims,main = "Claims for Estimate", col = "orange")
+# boxplot(Estimatedclaims, data = SmallAuto, col = 'orange')
+# boxplot(actualclaims, data = SmallAuto, col = 'blue')
+```
+
+The distributions for both claims are the same. Histograms show both distributions are skewed to the right. 
+Boxplots indicate both distributions have same median and outliers. 
+Almost identical in many ways. 
+
+
+---
+
+### Part 2c  
+
+Create a new variable of the differences for small vehicles, with the difference being the estimated claim amount minus the actual claim amount.  The estimated claim amounts in the first half of the vector are paired with the actual claim amounts in the second half of the vector so that row 1 and row 126 form a pair, rows 2 and 127, etc. 
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2c -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+## code runs but doesn't when knit. I include screenshots
+ delta_claim <- c(Estimatedclaims - actualclaims)
+delta_auto <- data.frame("E_Claims" = Estimatedclaims, "Estimated" = Estimated,   "A_Claims" = actualclaims, "Actual" = Actual, "delta_claim" = delta_claim)
+
+```
+
+---
+
+### Part 2c  
+
+Create a boxplot, histogram, and normal probability plot for the sample of differences. Also, obtain the P-value for a Shapiro-Wilk normality test.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2c -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+ boxplot(delta_claim,data=SmallAuto, main="Difference in Claim", col ="blue")
+hist(delta_claim, main ="Difference", col ="blue")
+# 
+ qqnorm(delta_claim, col="blue")
+ qqline(delta_claim)
+shapiro.test(delta_claim)
+
+```
+
+---
+
+### Part 2d  
+
+Comment on the shape of the distribution of differences and the suitability of this data for the paired *t*-test, the Wilcoxon signed rank test, and the sign test.  Which test will you use?
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2d -|-|-|-|-|-|-|-|-|-|-|-
+
+according to the boxplot the difference in medians is close to zero and there are no outliers.
+Histogram: The difference claim amount is little skewed to the right. 
+There is no evidence of non-normality.
+
+
+---
+
+### Part 2e 
+    
+Conduct an appropriate test to see if the population central values for the estimated claim amount is less than for the actual claim amounts for vehicles in the small class using $\alpha = 0.05$.
+
+#### Step 1
+
+Define the parameter in words in the context of the problem.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 2e.step1 -|-|-|-|-|-|-|-|-|-|-|-
+μd : let be the mean difference of estimate claim amounts subtracted from the actual claim amounts (delta_claim).
+delta_claim = actualclaims - estimatedclaims
+
+
+#### Step 2
+
+State the null and alternative hypotheses for the test using the symbol you defined previously.
+ 
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 2e.step2 -|-|-|-|-|-|-|-|-|-|-|-
+
+null hypothesis is H0 : μd = 0
+alternative hypothesis is Ha: μd ≠ 0  ( not equal to 0)
+#### Step 3
+
+Use R to generate the output for the test you selected. Pay close attention to the order of subtraction done behind the scenes in R.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 2e.step3 -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+t.test(actualclaims,Estimatedclaims, alternative = "two.sided", paired = TRUE)
+
+```
+
+#### Step 4
+
+State a statistical conclusion at $\alpha=0.05$ and interpret it in the context of the problem.
+
+#### -|-|-|-|-|-|-|-|-|-|-|- Answer 2e.step4 -|-|-|-|-|-|-|-|-|-|-|-
+
+At p-value of 0.03 reject H0 at α=0.05. There is sufficient evidence to suggest that the mean actual claim amounts is different from the estimate claim amounts. Rejecting the null hypothesis in favor of the alternative hypothesis the true difference (delt_claim) in means is not equal to zero. 
+
+---
+
+### Part 2f  
+
+Write an interpretation in the context of the problem for a 95% two-sided confidence interval.
+
+I commented line of code below but knit doc didn't to pass through this point.
+I included the test and the result in this box. Thank you
+
+t.test(actualclaims,Estimatedclaims, alternative = "two.sided", paired = TRUE)
+Paired t-test
+
+data:  actualclaims and Estimatedclaims
+t = 2.1537, df = 124, p-value = 0.03319
+alternative hypothesis: true difference in means is not equal to 0
+95 percent confidence interval:
+  0.4632425 10.9739093
+sample estimates:
+mean of the differences 
+               5.718576 
+
+
+Honestly, I didn't know which test to run so according the lecture if unsure run all of them which I did. It seems all the tests agree but signmedian test.
+The results indicate that actual claim amounts is 0.46 to 10.9 greater than estimate claim amounts. We are 95% confident that is the case.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 2f -|-|-|-|-|-|-|-|-|-|-|-
+```{r}
+t.test(actualclaims,Estimatedclaims, alternative = "two.sided", paired = TRUE)
+
+```
+
+
+
+
+---
+
+## Exercise 3
+
+The data frame AutoIns is very similar to Small Auto.  
+
+In a nationwide study of insurance claims filed in the previous year, a random sample of 125 claims was selected from all claims for vehicles classified as small, meaning the gross vehicle weight rating (GVWR) is less than 4500 pounds  A separate sample of 125 claims for vehicles classified as standard, meaning the GVWR is between 4500 and 8500 pounds.
+
+For each claim, the insurance company's estimate for the claim was also provided.
+
+The data frame AutoIns.rda contains the claims and estimates for each vehicle class. The variables in the data frame are defined as follows:
+
+claim.small = the actual claim amount in dollars for a vehicle in the small class
+
+est.small = the estimated claim amount in dollars for a vehicle in the small class
+
+claim.standard = the actual claim amount in dollars for a vehicle in the standard class
+
+est.standard = the estimated claim amount in dollars for a vehicle in the standard class
+
+### Part 3a  
+
+Load the data AutoIns from the DS705 package and look at the structure of the data in the file.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 3a -|-|-|-|-|-|-|-|-|-|-|-
+
+```{r}
+data(AutoIns)
+head(AutoIns)
+
+```
+
+---
+
+### Part 3b  
+
+Is the data "stacked" or "side-by-side" ("tall" or "wide")?
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 3b -|-|-|-|-|-|-|-|-|-|-|-
+
+side by side (very tall)
+
+---
+
+### Part 3c  
+
+Which pairs of variables in the data frame are independent of each other?  You can use the variable names to identify them.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 3c -|-|-|-|-|-|-|-|-|-|-|-
+
+What we have here is two different samples, randomly selectd.
+1 - claim - small  
+2 - claim - standard
+They are independent of each other. 
+Identification: claim.small and claim.standard.
+
+Simalerly , est.small and est.standard. 
+I hope I got it right :)
+---
+
+### Part 3d  
+
+Which pairs of variables in the data frame are paired (matched pairs)? You can use the variable names to identify them.
+
+### -|-|-|-|-|-|-|-|-|-|-|- Answer 3d -|-|-|-|-|-|-|-|-|-|-|-
+
+{claim.small and est.small}
+{claim.standard and es.standard}
+
+---
